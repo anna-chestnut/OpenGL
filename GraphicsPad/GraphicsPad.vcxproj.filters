@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Mainer.cpp" />
+    <ClCompile Include="MeGlWindow.cpp" />
+    <ClCompile Include="MeShaderCode.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MeGlWindow.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="res">
+      <UniqueIdentifier>{7b120bb8-9f7b-4da2-a2d1-408f1fc51d46}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res\shader">
+      <UniqueIdentifier>{24d0681e-df30-4f27-b09d-cdc6c6d6112e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\shader\triangle.shader">
+      <Filter>res\shader</Filter>
+    </None>
+    <None Include="triangle.shader" />
+  </ItemGroup>
+</Project>
