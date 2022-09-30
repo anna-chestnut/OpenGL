@@ -6,90 +6,36 @@
 #include <string>
 #include <sstream>
 #include <assert.h>
-#include <iostream>
 
-extern const char* vertexShaderCode;
-extern const char* fragmentShaderCode;
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
-struct ShaderProgramSource
+#include <QtGui\qkeyevent>
+
+#include "ShaderParser.h"
+
+GLuint traingleVbo, triangleEbo, triangleVao;
+unsigned int triangleProgram;
+
+glm::vec3 blueOffset(-0.5f, 0.5f, 0.0f);
+glm::vec3 redOffset(0.5f, -0.5f, 0.0f);
+float moveSpeed = 0.1f;
+
+void genBuffers()
 {
+	glGenVertexArrays(1, &triangleVao);
+	glGenBuffers(1, &traingleVbo);
+	glGenBuffers(1, &triangleEbo);
 
-	std::string VertexSource;
-	std::string FragmentSource;
-};
-
-static ShaderProgramSource ParseShader(const std::string& filepath)
-{
-
-	std::ifstream stream(filepath);
-
-	enum class ShaderType
-	{
-		NONE = -1,
-		VERTEX = 0,
-		FRAGMENT = 1
-	};
-
-	std::string line;
-	std::stringstream ss[2];
-	ShaderType type = ShaderType::NONE;
-	while (getline(stream, line))
-	{
-
-		if (line.find("#shader") != std::string::npos)
-		{
-
-			if (line.find("vertex") != std::string::npos)
-				type = ShaderType::VERTEX;
-			else if (line.find("fragment") != std::string::npos)
-				type = ShaderType::FRAGMENT;
-		}
-		else
-		{
-
-			ss[(int)type] << line << '\n';
-		}
-	}
-
-	return { ss[0].str(), ss[1].str() };
 }
 
-static unsigned int CompileShader(unsigned int type, const std::string& source)
+void bindBuffersAndSetAttribute()
 {
+	glBindVertexArray(triangleVao);
 
-	unsigned int id = glCreateShader(type);
-	const char* src = source.c_str();
-	glShaderSource(id, 1, &src, nullptr);
-	glCompileShader(id);
-
-	int result;
-	glGetShaderiv(id, GL_COMPILE_STATUS, &result);
-	if (result == GL_FALSE)
-	{
-		int length;
-		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-		char* message = (char*)alloca(length * sizeof(char));
-		glGetShaderInfoLog(id, length, &length, message);
-		std::cout << "Failed to compile" << (type == GL_VERTEX_SHADER ? "verttex" : "fragment")
-			<< " shader!" << std::endl;
-		std::cout << message << std::endl;
-		glDeleteShader(id);
-		return 0;
-	}
-
-	return id;
-}
-
-void sendDataToOpenGL()
-{
 	GLfloat verts[] =
 	{
-		-0.1f, +0.1f,
-		+0.8f, +0.2f, +0.0f,
-		-0.2f, +0.3f,
-		+0.8f, +0.2f, +0.0f,
-		-0.25f, +0.1f,
-		+0.8f, +0.2f, +0.0f,
 
 		+0.5f, +0.5f,
 		+0.2f, +0.1f, +0.7f,
@@ -100,48 +46,56 @@ void sendDataToOpenGL()
 		+0.5f, -0.5f,
 		+0.2f, +0.1f, +0.7f,
 
+		0.1f, +0.1f,
+		+0.8f, +0.2f, +0.0f,
+		-0.2f, +0.3f,
+		+0.8f, +0.2f, +0.0f,
+		-0.25f, +0.1f,
+		+0.8f, +0.2f, +0.0f,
+
+
 	};
-	GLuint myBufferID;
-	glGenBuffers(1, &myBufferID);
-	glBindBuffer(GL_ARRAY_BUFFER, myBufferID);
+
+	glBindBuffer(GL_ARRAY_BUFFER, traingleVbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(verts),
 		verts, GL_STATIC_DRAW);
+
+	GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangleEbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices),
+		indices, GL_STATIC_DRAW);
+
+	// set vao attribute
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeof(float) * 2));
+}
 
-	GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
-	GLuint indexBufferID;
-	glGenBuffers(1, &indexBufferID);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices),
-		indices, GL_STATIC_DRAW);
+
+void sendDataToOpenGL()
+{
+	genBuffers();
+	bindBuffersAndSetAttribute();
 }
 
 void installShaders()
 {
-	ShaderProgramSource source = ParseShader("triangle.shader");
+	ShaderParser::ShaderProgramSource source = ShaderParser::ParseShader("triangle.shader");
 
-	GLuint vertexShaderID = CompileShader(GL_VERTEX_SHADER, source.VertexSource);//glCreateShader(GL_VERTEX_SHADER);//
-	GLuint fragmentShaderID = CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);//glCreateShader(GL_FRAGMENT_SHADER);//C
-
-	/*const char* adapter[1];
-	adapter[0] = vertexShaderCode;
-	glShaderSource(vertexShaderID, 1, adapter, 0);
-	adapter[0] = fragmentShaderCode;
-	glShaderSource(fragmentShaderID, 1, adapter, 0);*/
+	GLuint vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
+	GLuint fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
 
 	glCompileShader(vertexShaderID);
 	glCompileShader(fragmentShaderID);
 
-	GLuint programID = glCreateProgram();
-	glAttachShader(programID, vertexShaderID);
-	glAttachShader(programID, fragmentShaderID);
-	glLinkProgram(programID);
-	glValidateProgram(programID);
+	triangleProgram = glCreateProgram();
+	glAttachShader(triangleProgram, vertexShaderID);
+	glAttachShader(triangleProgram, fragmentShaderID);
+	glLinkProgram(triangleProgram);
+	glValidateProgram(triangleProgram);
 
-	glUseProgram(programID);
 }
 
 void MeGlWindow::initializeGL()
@@ -151,10 +105,86 @@ void MeGlWindow::initializeGL()
 	installShaders();
 }
 
+void MeGlWindow::keyPressEvent(QKeyEvent* e)
+{
+	switch (e->key())
+	{
+	case Qt::Key::Key_W:
+		blueOffset += glm::vec3(0.0f, moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_A:
+		blueOffset += glm::vec3(-moveSpeed, 0.0f, 0.0f);
+		break;
+	case Qt::Key::Key_S:
+		blueOffset += glm::vec3(0.0f, -moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_D:
+		blueOffset += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		break;
+	case Qt::Key::Key_Up:
+		redOffset += glm::vec3(0.0f, moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_Left:
+		redOffset += glm::vec3(-moveSpeed, 0.0f, 0.0f);
+		break;
+	case Qt::Key::Key_Down:
+		redOffset += glm::vec3(0.0f, -moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_Right:
+		redOffset += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		break;
+	}
+
+	repaint();
+}
+
 void MeGlWindow::paintGL()
 {
 	glViewport(0, 0, width(), height());
-	//glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// first triangle
+	// --------------
+
+	// create transformations
+	glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+	transform = glm::translate(transform, blueOffset);
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
+	unsigned int transformLoc = glGetUniformLocation(triangleProgram, "transform");
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+
+	glm::vec3 inputColor(0.1f, 0.5f, 0.2f);
+	unsigned int colorLoc = glGetUniformLocation(triangleProgram, "color");
+	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
+
+	glUseProgram(triangleProgram);
+	glBindVertexArray(triangleVao);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, 0);
+
+	// second triangle
+	// ---------------
+	transform = glm::mat4(1.0f);
+	transform = glm::translate(transform, redOffset);
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+	inputColor = glm::vec3(0.5f, 0.1f, 0.2f);
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
+	glUseProgram(triangleProgram);
+
+	glBindVertexArray(triangleVao);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, 0);
+
+	// another shape
+	// -------------
+	transform = glm::mat4(1.0f);
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
+	inputColor = glm::vec3(0.5f, 0.2f, 0.8f);
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
+	glUseProgram(triangleProgram);
+
+	glBindVertexArray(triangleVao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 }
 

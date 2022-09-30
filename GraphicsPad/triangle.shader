@@ -7,10 +7,13 @@ in layout(location = 1) vec3 i_color;
 
 out vec3 o_color;
 
+uniform mat4 transform;
+uniform vec3 color;
+
 void main()
 {
-	gl_Position = vec4(position, 0.0, 1.0);
-	o_color = i_color;
+	gl_Position = transform * vec4(position, 0.0, 1.0);
+	o_color = color;
 };
 
 #shader fragment
