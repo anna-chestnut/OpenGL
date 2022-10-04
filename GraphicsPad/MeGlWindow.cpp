@@ -15,7 +15,7 @@
 
 #include "ShaderParser.h"
 
-GLuint traingleVbo, triangleEbo, triangleVao;
+GLuint traingleVbo, triangleVao;
 unsigned int triangleProgram;
 
 glm::vec3 blueOffset(-0.5f, 0.5f, 0.0f);
@@ -28,7 +28,6 @@ void genBuffers()
 {
 	glGenVertexArrays(1, &triangleVao);
 	glGenBuffers(1, &traingleVbo);
-	//glGenBuffers(1, &triangleEbo);
 
 }
 
@@ -58,16 +57,18 @@ void bindBuffersAndSetAttribute()
 
 	};
 
-	glBindBuffer(GL_ARRAY_BUFFER, traingleVbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verts),
-		verts, GL_STATIC_DRAW);
-
 	GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
 
+	glBindBuffer(GL_ARRAY_BUFFER, traingleVbo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, traingleVbo);
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts) + sizeof(indices),
+		0, GL_STATIC_DRAW);
+
+
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), &verts);
 	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(verts), sizeof(indices), &indices);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, traingleVbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices),
-		indices, GL_STATIC_DRAW);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 
 	// set vao attribute
@@ -151,6 +152,7 @@ void MeGlWindow::paintGL()
 	glViewport(0, 0, width(), height());
 
 	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(1.0f, 0.47f, 0.0f, 0.0);
 
 	// first triangle
 	// --------------
@@ -162,13 +164,13 @@ void MeGlWindow::paintGL()
 	
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 
-	glm::vec3 inputColor(0.1f, 0.5f, 0.2f);
+	glm::vec3 inputColor(0.1f, 0.2f, 0.2f);
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 
 	glUseProgram(triangleProgram);
 	glBindVertexArray(triangleVao);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-	//glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, 0);
+	//glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)140);
 
 	// second triangle
 	// ---------------
@@ -181,20 +183,20 @@ void MeGlWindow::paintGL()
 	glUseProgram(triangleProgram);
 
 	glBindVertexArray(triangleVao);
-	//glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)6);
-	glDrawArrays(GL_TRIANGLES, 1, 3);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)146);
+	//glDrawArrays(GL_TRIANGLES, 1, 3);
 
 	// another shape
 	// -------------
 	transform = glm::mat4(1.0f);
 	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 0.8f, 0.8f));
-	inputColor = glm::vec3(0.5f, 0.2f, 0.8f);
+	inputColor = glm::vec3(0.1f, 0.5f, 0.7f);
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 	glUseProgram(triangleProgram);
 
 	glBindVertexArray(triangleVao);
-	//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-	glDrawArrays(GL_TRIANGLES, 4, 3);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (GLvoid*)140);
+	//glDrawArrays(GL_TRIANGLES, 5, 6);
 }
 
