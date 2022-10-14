@@ -1,73 +1,140 @@
 #include <gl\glew.h>
-#include <MeGlWindow.h>
-
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <sstream>
-#include <assert.h>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
+#include <MeGlWindow.h>
 #include <QtGui\qkeyevent>
 
+#include <glm\glm.hpp>
+#include <glm\gtc\matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <Primitives\Vertex.h>
+#include <Primitives\ShapeGenerator.h>
 #include "ShaderParser.h"
 
-GLuint traingleVbo, triangleVao;
-unsigned int triangleProgram;
+using namespace std;
+using glm::vec3;
+using glm::mat4;
 
-glm::vec3 blueOffset(-0.5f, 0.5f, 0.0f);
-glm::vec3 redOffset(0.5f, -0.5f, 0.0f);
-float moveSpeed = 0.1f;
+GLuint programID;
+GLuint numIndices;
+GLsizeiptr sizeVertices;
+void* indicesPointer;
 
+unsigned int triangleProgram, cubeProgram;
+float rotateDegree = 20.0f;
+
+GLint modelTransformMatrixUniformLocation, projectionMatrixUniformLocation;
+GLint modelLoc, viewLoc, projectionLoc;
+
+// settings
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
+float xoffset, yoffset;
+float moveSpeed = 0.2f;
+
+unsigned int triangleVao, cubeVao;
 unsigned int transformLoc, colorLoc;
 
-void genBuffers()
+glm::vec3 cubePos(0.0f, 0.0f, -3.0f);
+glm::vec3 blueOffset(-0.5f, 0.5f, 0.0f);
+glm::vec3 redOffset(0.5f, -0.5f, 0.0f);
+
+glm::vec3 cubePositions[] = {
+	   glm::vec3(0.0f,  0.0f,  0.0f),
+	   glm::vec3(2.0f,  5.0f, -15.0f),
+	   glm::vec3(-1.5f, -2.2f, -2.5f),
+	   glm::vec3(-3.8f, -2.0f, -12.3f),
+	   glm::vec3(2.4f, -0.4f, -3.5f),
+	   glm::vec3(-1.7f,  3.0f, -7.5f),
+	   glm::vec3(1.3f, -2.0f, -2.5f),
+	   glm::vec3(1.5f,  2.0f, -2.5f),
+	   glm::vec3(1.5f,  0.2f, -1.5f),
+	   glm::vec3(-1.3f,  1.0f, -1.5f)
+};
+
+GLfloat verts[] =
 {
+
+	+0.5f, +0.5f,
+	+0.2f, +0.1f, +0.7f,
+	-0.5f, +0.5f,
+	+0.2f, +0.1f, +0.7f,
+	-0.5f, -0.5f,
+	+0.2f, +0.1f, +0.7f,
+	+0.5f, -0.5f,
+	+0.2f, +0.1f, +0.7f,
+
+	0.1f, +0.1f,
+	+0.8f, +0.2f, +0.0f,
+	-0.2f, +0.3f,
+	+0.8f, +0.2f, +0.0f,
+	-0.25f, +0.1f,
+	+0.8f, +0.2f, +0.0f,
+
+
+};
+
+GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
+
+bool drawCube = true;
+
+#define PR_DEBUG
+
+#ifdef PR_DEBUG
+#define ASSERT(x) \
+  if (!(x))       \
+  __debugbreak()
+#define GLCall(x) \
+  GLClearError(); \
+  x;              \
+  ASSERT(GLLogCall(#x, __FILE__, __LINE__));
+#else
+#define GLCall(x) x
+#endif
+
+static void GLClearError();
+static bool GLLogCall(const char* function, const char* file, int line);
+
+void sendDataToOpenGL()
+{
+
 	glGenVertexArrays(1, &triangleVao);
-	glGenBuffers(1, &traingleVbo);
+	glGenVertexArrays(1, &cubeVao);
 
-}
+	ShapeData shape = ShapeGenerator::makeCube();
 
-void bindBuffersAndSetAttribute()
-{
+	GLuint vertexBufferID;
+	glGenBuffers(1, &vertexBufferID);
+	glBindVertexArray(cubeVao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+
+	glBufferData(GL_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize() + sizeof(verts) + sizeof(indices), shape.vertices, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, shape.vertexBufferSize(), shape.vertices);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (char*)(sizeof(float) * 3));
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, shape.vertexBufferSize(), shape.indexBufferSize(), shape.indices);
+
+	numIndices = shape.numIndices;
+	sizeVertices = shape.vertexBufferSize();
+
+	// triangle 
+	// --------
 	glBindVertexArray(triangleVao);
 
-	GLfloat verts[] =
-	{
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID)); 
+	GLCall(glBufferSubData(GL_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize(), sizeof(verts), &verts));
 
-		+0.5f, +0.5f,
-		+0.2f, +0.1f, +0.7f,
-		-0.5f, +0.5f,
-		+0.2f, +0.1f, +0.7f,
-		-0.5f, -0.5f,
-		+0.2f, +0.1f, +0.7f,
-		+0.5f, -0.5f,
-		+0.2f, +0.1f, +0.7f,
-
-		0.1f, +0.1f,
-		+0.8f, +0.2f, +0.0f,
-		-0.2f, +0.3f,
-		+0.8f, +0.2f, +0.0f,
-		-0.25f, +0.1f,
-		+0.8f, +0.2f, +0.0f,
-
-
-	};
-
-	GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
-
-	glBindBuffer(GL_ARRAY_BUFFER, traingleVbo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, traingleVbo);
-
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verts) + sizeof(indices),
-		0, GL_STATIC_DRAW);
-
-
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), &verts);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(verts), sizeof(indices), &indices);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize() + sizeof(verts), sizeof(indices), &indices);
 	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 
@@ -76,101 +143,72 @@ void bindBuffersAndSetAttribute()
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeof(float) * 2));
-	//glEnableVertexAttribArray(2);
-	//glVertexAttribPointer(2, 3, GL_UNSIGNED_SHORT, GL_FALSE, sizeof(GL_UNSIGNED_SHORT) * 9, (char*)sizeof(verts));
-}
 
-
-void sendDataToOpenGL()
-{
-	genBuffers();
-	bindBuffersAndSetAttribute();
-}
-
-void installShaders()
-{
-	ShaderParser::ShaderProgramSource source = ShaderParser::ParseShader("triangle.shader");
-
-	GLuint vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
-	GLuint fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
-
-	glCompileShader(vertexShaderID);
-	glCompileShader(fragmentShaderID);
-
-	triangleProgram = glCreateProgram();
-	glAttachShader(triangleProgram, vertexShaderID);
-	glAttachShader(triangleProgram, fragmentShaderID);
-	glLinkProgram(triangleProgram);
-	glValidateProgram(triangleProgram);
-
-	transformLoc = glGetUniformLocation(triangleProgram, "transform");
-	colorLoc = glGetUniformLocation(triangleProgram, "color");
-}
-
-void MeGlWindow::initializeGL()
-{
-	glewInit();
-	sendDataToOpenGL();
-	installShaders();
-}
-
-void MeGlWindow::keyPressEvent(QKeyEvent* e)
-{
-	switch (e->key())
-	{
-	case Qt::Key::Key_W:
-		blueOffset += glm::vec3(0.0f, moveSpeed, 0.0f);
-		break;
-	case Qt::Key::Key_A:
-		blueOffset += glm::vec3(-moveSpeed, 0.0f, 0.0f);
-		break;
-	case Qt::Key::Key_S:
-		blueOffset += glm::vec3(0.0f, -moveSpeed, 0.0f);
-		break;
-	case Qt::Key::Key_D:
-		blueOffset += glm::vec3(moveSpeed, 0.0f, 0.0f);
-		break;
-	case Qt::Key::Key_Up:
-		redOffset += glm::vec3(0.0f, moveSpeed, 0.0f);
-		break;
-	case Qt::Key::Key_Left:
-		redOffset += glm::vec3(-moveSpeed, 0.0f, 0.0f);
-		break;
-	case Qt::Key::Key_Down:
-		redOffset += glm::vec3(0.0f, -moveSpeed, 0.0f);
-		break;
-	case Qt::Key::Key_Right:
-		redOffset += glm::vec3(moveSpeed, 0.0f, 0.0f);
-		break;
-	}
-
-	repaint();
+	shape.cleanup();
 }
 
 void MeGlWindow::paintGL()
 {
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glViewport(0, 0, width(), height());
 
-	glClear(GL_COLOR_BUFFER_BIT);
-	glClearColor(1.0f, 0.47f, 0.0f, 0.0);
+	// Draw cube
+	// ---------
+	glUseProgram(cubeProgram);
+	glBindVertexArray(cubeVao);
 
-	// first triangle
-	// --------------
+	mat4 model = glm::translate(mat4(), cubePos);
+	model = glm::rotate(model, glm::radians(xoffset), glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(yoffset), glm::vec3(1.0f, 0.0f, 0.0f));
+
+	glm::mat4 view = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+	view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+
+	mat4 projection = glm::perspective(45.0f, ((float)width()) / height(), 0.1f, 100.0f);
+
+	glUniformMatrix4fv(modelLoc, 1,	GL_FALSE, &model[0][0]);
+	glUniformMatrix4fv(viewLoc, 1,	GL_FALSE, &view[0][0]);
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
+
+	if(drawCube)
+		glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
+
+	// Draw second cubes
+
+	for (unsigned int i = 0; i < 10; i++)
+	{
+		// calculate the model matrix for each object and pass it to shader before drawing
+		//translation*rotation*scale
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, cubePositions[i]);
+		float angle = 20.0f * i;
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
+
+		glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
+
+	}
+	
+	// Draw traingle
+	// -------------
+
+
+	glUseProgram(triangleProgram);
+	glBindVertexArray(triangleVao);
 
 	// create transformations
 	glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
 	transform = glm::translate(transform, blueOffset);
 	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
-	
+
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 
 	glm::vec3 inputColor(0.1f, 0.2f, 0.2f);
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 
-	glUseProgram(triangleProgram);
-	glBindVertexArray(triangleVao);
 	//glDrawArrays(GL_TRIANGLES, 0, 3);
-	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)140);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + 140));
 
 	// second triangle
 	// ---------------
@@ -182,21 +220,127 @@ void MeGlWindow::paintGL()
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 	glUseProgram(triangleProgram);
 
-	glBindVertexArray(triangleVao);
-	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)146);
+	//glBindVertexArray(triangleVao);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + 146));
 	//glDrawArrays(GL_TRIANGLES, 1, 3);
 
 	// another shape
 	// -------------
 	transform = glm::mat4(1.0f);
-	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 0.8f, 0.8f));
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 0.5f, 0.5f));
 	inputColor = glm::vec3(0.1f, 0.5f, 0.7f);
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 	glUseProgram(triangleProgram);
 
-	glBindVertexArray(triangleVao);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (GLvoid*)140);
+	//glBindVertexArray(triangleVao);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (GLvoid*)(140));
 	//glDrawArrays(GL_TRIANGLES, 5, 6);
 }
 
+void installShadersParser()
+{
+	ShaderParser::ShaderProgramSource source = ShaderParser::ParseShader("cube.shader");
+
+	GLuint vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
+	GLuint fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
+
+	glCompileShader(vertexShaderID);
+	glCompileShader(fragmentShaderID);
+
+	cubeProgram = glCreateProgram();
+	glAttachShader(cubeProgram, vertexShaderID);
+	glAttachShader(cubeProgram, fragmentShaderID);
+	glLinkProgram(cubeProgram);
+	glValidateProgram(cubeProgram);
+
+	//glUseProgram(cubeProgram);
+	
+	modelLoc = glGetUniformLocation(cubeProgram, "model");
+	viewLoc = glGetUniformLocation(cubeProgram, "view");
+	projectionLoc = glGetUniformLocation(cubeProgram, "projection");
+
+	// triangle
+	// --------
+	source = ShaderParser::ParseShader("triangle.shader");
+
+	vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
+	fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
+
+	glCompileShader(vertexShaderID);
+	glCompileShader(fragmentShaderID);
+
+	triangleProgram = glCreateProgram();
+	glAttachShader(triangleProgram, vertexShaderID);
+	glAttachShader(triangleProgram, fragmentShaderID);
+	glLinkProgram(triangleProgram);
+	glValidateProgram(triangleProgram);
+
+	//glUseProgram(triangleProgram);
+
+	transformLoc = glGetUniformLocation(triangleProgram, "transform");
+	colorLoc = glGetUniformLocation(triangleProgram, "color");
+}
+
+void MeGlWindow::initializeGL()
+{
+	glewInit();
+	glEnable(GL_DEPTH_TEST);
+	sendDataToOpenGL();
+	installShadersParser();
+}
+
+void MeGlWindow::keyPressEvent(QKeyEvent* e)
+{
+	switch (e->key())
+	{
+	case Qt::Key::Key_W:
+		cubePos += glm::vec3(0.0f, moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_A:
+		cubePos += glm::vec3(-moveSpeed, 0.0f, 0.0f);
+		break;
+	case Qt::Key::Key_S:
+		cubePos += glm::vec3(0.0f, -moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_D:
+		cubePos += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		break;
+	case Qt::Key::Key_Up:
+		yoffset += rotateDegree;
+		break;
+	case Qt::Key::Key_Left:
+		xoffset -= rotateDegree;
+		break;
+	case Qt::Key::Key_Down:
+		yoffset -= rotateDegree;
+		break;
+	case Qt::Key::Key_Right:
+		xoffset += rotateDegree;
+		break;
+	case Qt::Key::Key_Space:
+		drawCube = !drawCube;
+		break;
+	}
+
+	repaint();
+}
+
+static void GLClearError()
+{
+
+	while (glGetError() != GL_NO_ERROR)
+		;
+}
+
+static bool GLLogCall(const char* function, const char* file, int line)
+{
+
+	while (GLenum error = glGetError())
+	{
+		std::cout << "[OpenGL Error] (" << error << ")" << function << " " << file << ":" << line << std::endl;
+		return false;
+	}
+
+	return true;
+}
