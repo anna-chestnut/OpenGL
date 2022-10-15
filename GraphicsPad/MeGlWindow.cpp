@@ -17,30 +17,31 @@ using namespace std;
 using glm::vec3;
 using glm::mat4;
 
-GLuint programID;
-GLuint numIndices;
-GLsizeiptr sizeVertices;
-void* indicesPointer;
-
-unsigned int triangleProgram, cubeProgram;
-float rotateDegree = 20.0f;
-
-GLint modelTransformMatrixUniformLocation, projectionMatrixUniformLocation;
-GLint modelLoc, viewLoc, projectionLoc;
-
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
+// cube data
+// ---------
+GLuint numIndices;
+GLsizeiptr sizeVertices, sizeIndices;
+unsigned int cubeProgram;
+float rotateDegree = 20.0f;
+GLint modelLoc, viewLoc, projectionLoc;
 float xoffset, yoffset;
 float moveSpeed = 0.2f;
+bool drawCube = true;
 
+// triangle data
+// -------------
+unsigned int triangleProgram;
 unsigned int triangleVao, cubeVao;
 unsigned int transformLoc, colorLoc;
 
+// cube data
+// ---------
+
 glm::vec3 cubePos(0.0f, 0.0f, -3.0f);
-glm::vec3 blueOffset(-0.5f, 0.5f, 0.0f);
-glm::vec3 redOffset(0.5f, -0.5f, 0.0f);
 
 glm::vec3 cubePositions[] = {
 	   glm::vec3(0.0f,  0.0f,  0.0f),
@@ -55,6 +56,8 @@ glm::vec3 cubePositions[] = {
 	   glm::vec3(-1.3f,  1.0f, -1.5f)
 };
 
+// triangle data
+// -------------
 GLfloat verts[] =
 {
 
@@ -79,7 +82,6 @@ GLfloat verts[] =
 
 GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
 
-bool drawCube = true;
 
 #define PR_DEBUG
 
@@ -104,6 +106,9 @@ void sendDataToOpenGL()
 	glGenVertexArrays(1, &triangleVao);
 	glGenVertexArrays(1, &cubeVao);
 
+	// Cube Data
+	// =========
+
 	ShapeData shape = ShapeGenerator::makeCube();
 
 	GLuint vertexBufferID;
@@ -112,39 +117,46 @@ void sendDataToOpenGL()
 
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
 
+	// initalize the whole buffer * need to include the size of triangle data *
 	glBufferData(GL_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize() + sizeof(verts) + sizeof(indices), shape.vertices, GL_STATIC_DRAW);
+
+	// set vertices data
 	glBufferSubData(GL_ARRAY_BUFFER, 0, shape.vertexBufferSize(), shape.vertices);
 
+	// set vao attributes
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (char*)(sizeof(float) * 3));
 
+	// set indices data
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
 	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, shape.vertexBufferSize(), shape.indexBufferSize(), shape.indices);
 
 	numIndices = shape.numIndices;
 	sizeVertices = shape.vertexBufferSize();
+	sizeIndices = shape.indexBufferSize();
 
-	// triangle 
-	// --------
+	shape.cleanup();
+
+	// Triangle Data 
+	// =============
 	glBindVertexArray(triangleVao);
 
+	// set vertices data
 	GLCall(glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID)); 
-	GLCall(glBufferSubData(GL_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize(), sizeof(verts), &verts));
+	GLCall(glBufferSubData(GL_ARRAY_BUFFER, sizeVertices + sizeIndices, sizeof(verts), &verts));
 
+	// set indices data
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize() + sizeof(verts), sizeof(indices), &indices);
-	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeVertices + sizeIndices + sizeof(verts), sizeof(indices), &indices);
 
 	// set vao attribute
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeVertices + sizeIndices));
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeof(float) * 2));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeVertices + sizeIndices + sizeof(float) * 2));
 
-	shape.cleanup();
 }
 
 void MeGlWindow::paintGL()
@@ -153,7 +165,9 @@ void MeGlWindow::paintGL()
 	glViewport(0, 0, width(), height());
 
 	// Draw cube
-	// ---------
+	// =========
+
+	// tell opengl which program and vao to use to render
 	glUseProgram(cubeProgram);
 	glBindVertexArray(cubeVao);
 
@@ -161,11 +175,12 @@ void MeGlWindow::paintGL()
 	model = glm::rotate(model, glm::radians(xoffset), glm::vec3(0.0f, 1.0f, 0.0f));
 	model = glm::rotate(model, glm::radians(yoffset), glm::vec3(1.0f, 0.0f, 0.0f));
 
-	glm::mat4 view = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+	glm::mat4 view = glm::mat4(1.0f);
 	view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 
 	mat4 projection = glm::perspective(45.0f, ((float)width()) / height(), 0.1f, 100.0f);
 
+	// set the value in shader
 	glUniformMatrix4fv(modelLoc, 1,	GL_FALSE, &model[0][0]);
 	glUniformMatrix4fv(viewLoc, 1,	GL_FALSE, &view[0][0]);
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
@@ -173,12 +188,13 @@ void MeGlWindow::paintGL()
 	if(drawCube)
 		glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
 
-	// Draw second cubes
+	// Draw multiple cubes
+	// -------------------
 
 	for (unsigned int i = 0; i < 10; i++)
 	{
 		// calculate the model matrix for each object and pass it to shader before drawing
-		//translation*rotation*scale
+		// translation * rotation * scale
 		model = glm::mat4(1.0f);
 		model = glm::translate(model, cubePositions[i]);
 		float angle = 20.0f * i;
@@ -191,55 +207,65 @@ void MeGlWindow::paintGL()
 	}
 	
 	// Draw traingle
-	// -------------
+	// =============
 
-
+	// tell opengl which program and vao to use to render
 	glUseProgram(triangleProgram);
 	glBindVertexArray(triangleVao);
 
-	// create transformations
-	glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-	transform = glm::translate(transform, blueOffset);
+	// create transformations -> translation * rotation * scale
+	glm::mat4 transform = glm::mat4(1.0f);
+	transform = glm::translate(transform, vec3(0.9f, -0.9f, 0.0f));
 	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
-
-	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
-
 	glm::vec3 inputColor(0.1f, 0.2f, 0.2f);
+
+	// set the value in shader
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 
-	//glDrawArrays(GL_TRIANGLES, 0, 3);
-	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + 140));
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 140));
 
 	// second triangle
 	// ---------------
 	transform = glm::mat4(1.0f);
-	transform = glm::translate(transform, redOffset);
-	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+	transform = glm::translate(transform, vec3(-0.9f, 0.8f, 0.0f));
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.25f, 0.5f));
 	inputColor = glm::vec3(0.5f, 0.1f, 0.2f);
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 	glUseProgram(triangleProgram);
 
-	//glBindVertexArray(triangleVao);
-	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + 146));
-	//glDrawArrays(GL_TRIANGLES, 1, 3);
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 146));
 
-	// another shape
+	// third triangle
+	// ---------------
+	transform = glm::mat4(1.0f);
+	transform = glm::translate(transform, vec3(1.0f, 1.0f, 0.0f));
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+	inputColor = glm::vec3(0.1f, 0.51f, 0.4f);
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
+	glUseProgram(triangleProgram);
+
+	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 146));
+
+	// first rectangle
 	// -------------
 	transform = glm::mat4(1.0f);
-	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 0.5f, 0.5f));
+	transform = glm::translate(transform, vec3(-1.0f, -1.0f, 0.0f));
+	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
 	inputColor = glm::vec3(0.1f, 0.5f, 0.7f);
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 	glUseProgram(triangleProgram);
 
-	//glBindVertexArray(triangleVao);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (GLvoid*)(140));
-	//glDrawArrays(GL_TRIANGLES, 5, 6);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 140));
 }
 
 void installShadersParser()
 {
+	// Load cube shader
+	// ================
 	ShaderParser::ShaderProgramSource source = ShaderParser::ParseShader("cube.shader");
 
 	GLuint vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
@@ -248,20 +274,20 @@ void installShadersParser()
 	glCompileShader(vertexShaderID);
 	glCompileShader(fragmentShaderID);
 
+	// attach to cube shader to cubeProgram
 	cubeProgram = glCreateProgram();
 	glAttachShader(cubeProgram, vertexShaderID);
 	glAttachShader(cubeProgram, fragmentShaderID);
 	glLinkProgram(cubeProgram);
 	glValidateProgram(cubeProgram);
 
-	//glUseProgram(cubeProgram);
-	
+	// find the location of uniform variable in shader	
 	modelLoc = glGetUniformLocation(cubeProgram, "model");
 	viewLoc = glGetUniformLocation(cubeProgram, "view");
 	projectionLoc = glGetUniformLocation(cubeProgram, "projection");
 
-	// triangle
-	// --------
+	// Load triangle shader
+	// ====================
 	source = ShaderParser::ParseShader("triangle.shader");
 
 	vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
@@ -270,14 +296,14 @@ void installShadersParser()
 	glCompileShader(vertexShaderID);
 	glCompileShader(fragmentShaderID);
 
+	// attach to triangle shader to triangleProgram
 	triangleProgram = glCreateProgram();
 	glAttachShader(triangleProgram, vertexShaderID);
 	glAttachShader(triangleProgram, fragmentShaderID);
 	glLinkProgram(triangleProgram);
 	glValidateProgram(triangleProgram);
 
-	//glUseProgram(triangleProgram);
-
+	// find the location of uniform variable in shader
 	transformLoc = glGetUniformLocation(triangleProgram, "transform");
 	colorLoc = glGetUniformLocation(triangleProgram, "color");
 }
