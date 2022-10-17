@@ -180,13 +180,20 @@ void MeGlWindow::paintGL()
 
 	mat4 projection = glm::perspective(45.0f, ((float)width()) / height(), 0.1f, 100.0f);
 
+
+	if (drawCube) {
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+	}
+	else {
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.001f));
+	}
+
 	// set the value in shader
-	glUniformMatrix4fv(modelLoc, 1,	GL_FALSE, &model[0][0]);
-	glUniformMatrix4fv(viewLoc, 1,	GL_FALSE, &view[0][0]);
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
 
-	if(drawCube)
-		glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
+	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
 
 	// Draw multiple cubes
 	// -------------------
