@@ -44,16 +44,20 @@ unsigned int transformLoc, colorLoc;
 glm::vec3 cubePos(0.0f, 0.0f, -3.0f);
 
 glm::vec3 cubePositions[] = {
-	   glm::vec3(0.0f,  0.0f,  0.0f),
+	   glm::vec3(3.0f,  0.0f,  -12.0f),
 	   glm::vec3(2.0f,  5.0f, -15.0f),
 	   glm::vec3(-1.5f, -2.2f, -2.5f),
 	   glm::vec3(-3.8f, -2.0f, -12.3f),
 	   glm::vec3(2.4f, -0.4f, -3.5f),
 	   glm::vec3(-1.7f,  3.0f, -7.5f),
 	   glm::vec3(1.3f, -2.0f, -2.5f),
-	   glm::vec3(1.5f,  2.0f, -2.5f),
+	   glm::vec3(2.5f,  2.0f, -2.5f),
 	   glm::vec3(1.5f,  0.2f, -1.5f),
-	   glm::vec3(-1.3f,  1.0f, -1.5f)
+	   glm::vec3(-1.3f,  1.0f, -1.5f),
+
+
+	   glm::vec3(-2.5f,  1.7f, -1.8f),
+	   glm::vec3(-3.0f,  -1.7f, -0.8f)
 };
 
 // triangle data
@@ -163,6 +167,7 @@ void MeGlWindow::paintGL()
 {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glViewport(0, 0, width(), height());
+	glClearColor(+1.0f, +0.75f, 0.8f, 1.0f);
 
 	// Draw cube
 	// =========
@@ -198,7 +203,7 @@ void MeGlWindow::paintGL()
 	// Draw multiple cubes
 	// -------------------
 
-	for (unsigned int i = 0; i < 10; i++)
+	for (unsigned int i = 0; i < 12; i++)
 	{
 		// calculate the model matrix for each object and pass it to shader before drawing
 		// translation * rotation * scale
@@ -206,7 +211,8 @@ void MeGlWindow::paintGL()
 		model = glm::translate(model, cubePositions[i]);
 		float angle = 20.0f * i;
 		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
+		float scaleValue = (i + 1) * 0.03f;
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(scaleValue, scaleValue, scaleValue));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
 
 		glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
@@ -247,9 +253,9 @@ void MeGlWindow::paintGL()
 	// third triangle
 	// ---------------
 	transform = glm::mat4(1.0f);
-	transform = glm::translate(transform, vec3(1.0f, 1.0f, 0.0f));
+	transform = glm::translate(transform, vec3(-1.0f, -1.0f, 0.0f));
 	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
-	inputColor = glm::vec3(0.1f, 0.51f, 0.4f);
+	inputColor = glm::vec3(0.18f, 0.78f, 0.28f);
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 	glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
 	glUseProgram(triangleProgram);
@@ -259,7 +265,7 @@ void MeGlWindow::paintGL()
 	// first rectangle
 	// -------------
 	transform = glm::mat4(1.0f);
-	transform = glm::translate(transform, vec3(-1.0f, -1.0f, 0.0f));
+	transform = glm::translate(transform, vec3(1.0f, 1.0f, 0.0f));
 	transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
 	inputColor = glm::vec3(0.1f, 0.5f, 0.7f);
 	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
