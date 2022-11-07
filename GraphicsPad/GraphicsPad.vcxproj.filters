@@ -5,6 +5,7 @@
     <ClCompile Include="MeGlWindow.cpp" />
     <ClCompile Include="Primitives\ShapeGenerator.cpp" />
     <ClCompile Include="ShaderParser.cpp" />
+    <ClCompile Include="Camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MeGlWindow.h" />
@@ -12,5 +13,10 @@
     <ClInclude Include="Primitives\ShapeData.h" />
     <ClInclude Include="Primitives\ShapeGenerator.h" />
     <ClInclude Include="ShaderParser.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Primitives\TeapotData.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plane.shader" />
   </ItemGroup>
 </Project>

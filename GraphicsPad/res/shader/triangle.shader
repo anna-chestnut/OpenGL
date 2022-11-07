@@ -4,6 +4,7 @@
 
 in layout(location=0) vec2 position;
 in layout(location = 1) vec3 color;
+in layout(location = 2) vec3 normal;
 
 //out vec3 o_color;
 
