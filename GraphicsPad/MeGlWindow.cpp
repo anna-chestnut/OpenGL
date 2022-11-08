@@ -463,16 +463,31 @@ void MeGlWindow::keyPressEvent(QKeyEvent* e)
 	switch (e->key())
 	{
 	case Qt::Key::Key_W:
-		planePos += glm::vec3(0.0f, moveSpeed, 0.0f);
+		//planePos += glm::vec3(0.0f, moveSpeed, 0.0f);
+		camera.moveUp();
 		break;
 	case Qt::Key::Key_A:
-		planePos += glm::vec3(-moveSpeed, 0.0f, 0.0f);
+		//camera.moveUp();
+		camera.strafeLeft();
 		break;
 	case Qt::Key::Key_S:
-		planePos += glm::vec3(0.0f, -moveSpeed, 0.0f);
+		//planePos += glm::vec3(0.0f, -moveSpeed, 0.0f);
+		camera.moveDown();
 		break;
 	case Qt::Key::Key_D:
-		planePos += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		//planePos += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		//camera.moveDown();
+		camera.strafeRight();
+		break;
+	case Qt::Key::Key_R:
+		//planePos += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		//camera.moveDown();
+		camera.moveForward();
+		break;
+	case Qt::Key::Key_F:
+		//planePos += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		//camera.moveDown();
+		camera.moveBackward();
 		break;
 	case Qt::Key::Key_Up:
 		yoffset += rotateDegree;
