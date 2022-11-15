@@ -27,8 +27,6 @@ glm::vec3 lightPos(0, 3, 0);
 
 // cube data
 // ---------
-GLuint numIndices;
-GLsizeiptr sizeVertices, sizeIndices;
 unsigned int cubeProgram;
 float rotateDegree = 20.0f;
 GLint modelLoc, viewLoc, projectionLoc;
@@ -39,12 +37,23 @@ bool drawCube = true;
 // triangle data
 // -------------
 unsigned int triangleProgram;
-unsigned int triangleVao, cubeVao, planeVao;
+unsigned int triangleVao, cubeVao;
 unsigned int transformLoc, colorLoc;
 
-unsigned int planeProgram;
+// plane data
+// ----------
+GLuint numIndices;
+GLsizeiptr sizeVertices, sizeIndices;
+unsigned int planeVao, planeProgram;
 unsigned int mvpLoc, mvLoc, planeModelLoc, planeLightPosLoc, planeLightColor, planeViewPos;
 
+// sphere data
+// -----------
+unsigned int sphereVao, sphereVbo, sphereEbo;
+GLuint sphereNumIndices;
+GLsizeiptr sphereSizeVertices, sphereSizeIndices;
+unsigned int sphereProgram;
+unsigned int sphereMvpLoc, sphereMvLoc, sphereModelLoc, sphereLightPosLoc, sphereLightColor, sphereViewPos;
 
 
 // cube data
@@ -211,6 +220,48 @@ void sendDataToOpenGL()
 	sizeIndices = plane.indexBufferSize();
 	plane.cleanup();
 
+
+	// Sphere data
+	// ===========
+
+	ShapeData sphere = ShapeGenerator::makeSphere(2);
+
+	//GLuint sphereVBO;
+	glGenVertexArrays(1, &sphereVao);
+	glGenBuffers(1, &sphereVbo);
+	glGenBuffers(1, &sphereEbo);;
+
+	glBindVertexArray(sphereVao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, sphereVbo);
+	glBufferData(GL_ARRAY_BUFFER, sphere.vertexBufferSize(), sphere.vertices, GL_STATIC_DRAW);
+
+	// set indices data
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphere.indexBufferSize(), sphere.indices, GL_STATIC_DRAW);
+
+	// set vertices data
+	//glBufferSubData(GL_ARRAY_BUFFER, 0, sphere.vertexBufferSize(), sphere.vertices);
+
+	// set vao attributes
+	// vertex position
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, 0);
+	// color
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 3));
+	// normal
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 6));
+
+	
+	sphereNumIndices = sphere.numIndices;
+	sphereSizeVertices = sphere.vertexBufferSize();
+	sphereSizeIndices = sphere.indexBufferSize();
+	sphere.cleanup();
+
+	
+
 }
 
 void MeGlWindow::paintGL()
@@ -237,8 +288,8 @@ void MeGlWindow::paintGL()
 
 	mat4 model = glm::translate(mat4(), planePos);
 	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
-	model = glm::rotate(model, glm::radians(xoffset), glm::vec3(0.0f, 1.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(yoffset), glm::vec3(1.0f, 0.0f, 0.0f));
+	/*model = glm::rotate(model, glm::radians(xoffset), glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(yoffset), glm::vec3(1.0f, 0.0f, 0.0f));*/
 
 	mat4 modelToProjectionMatrix;
 	mat4 viewToProjectionMatrix = glm::perspective(60.0f, ((float)width()) / height(), 0.1f, 20.0f);
@@ -264,6 +315,25 @@ void MeGlWindow::paintGL()
 
 	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
 
+
+	glUseProgram(planeProgram);
+	glBindVertexArray(sphereVao);
+
+	model = glm::translate(mat4(), vec3(3.0f, 1.0f, 0.0f));
+
+	modelToProjectionMatrix = worldToProjectionMatrix * model;
+	planeModelToWorldMatrix = viewToProjectionMatrix * model;
+
+	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+	glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
+	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+
+	glUniform3fv(planeLightPosLoc, 1, &lightPos[0]);
+	glUniform3fv(planeViewPos, 1, &camPos[0]);
+	glUniform3fv(planeLightColor, 1, &lightColor[0]);
+
+	glDrawElements(GL_TRIANGLES, sphereNumIndices, GL_UNSIGNED_SHORT, 0);
+	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
 
 	//// Draw cube
 	//// =========
@@ -490,16 +560,20 @@ void MeGlWindow::keyPressEvent(QKeyEvent* e)
 		camera.moveBackward();
 		break;
 	case Qt::Key::Key_Up:
-		yoffset += rotateDegree;
+		//yoffset += rotateDegree;
+		lightPos += glm::vec3(0.0f, 0.0f, moveSpeed);
 		break;
 	case Qt::Key::Key_Left:
-		xoffset -= rotateDegree;
+		//xoffset -= rotateDegree;
+		lightPos -= glm::vec3(moveSpeed, 0.0f, 0.0f);
 		break;
 	case Qt::Key::Key_Down:
-		yoffset -= rotateDegree;
+		//yoffset -= rotateDegree;
+		lightPos -= glm::vec3(0.0f, 0.0f, moveSpeed);
 		break;
 	case Qt::Key::Key_Right:
-		xoffset += rotateDegree;
+		//xoffset += rotateDegree;
+		lightPos += glm::vec3(moveSpeed, 0.0f, 0.0f);
 		break;
 	case Qt::Key::Key_Space:
 		drawCube = !drawCube;
