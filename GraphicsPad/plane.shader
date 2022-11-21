@@ -18,10 +18,10 @@ out vec3 FragPos;
 void main()
 {
 	
-	gl_Position = mvpMatrix * vec4(position, 1.0f);
 	theColor = vertexColor;
 	FragPos = vec3(model * vec4(position, 1.0));
-	Normal = mat3(transpose(inverse(mvMatrix))) * normal;
+	Normal = mat3(transpose(inverse(model))) * normal;
+	gl_Position = mvpMatrix * vec4(position, 1.0f);
 }
 
 #shader fragment
@@ -30,7 +30,7 @@ void main()
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 viewPos;
-uniform vec3 objectColor;
+//uniform vec3 objectColor;
 
 out vec4 color;
 
@@ -43,7 +43,7 @@ void main()
 	//daColor = vec4(theColor, 1.0);
 	
 	// ambient
-	float ambientStrength = 0.5;
+	float ambientStrength = 0.1;
 	vec3 ambient = ambientStrength * lightColor;
 
 	// diffuse 
@@ -53,7 +53,7 @@ void main()
 	vec3 diffuse = diff * lightColor;
 
 	// specular
-	float specularStrength = 1.0;//0.5
+	float specularStrength = 0.5;//0.5
 	vec3 viewDir = normalize(viewPos - FragPos);
 	vec3 reflectDir = reflect(-lightDir, norm);
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);

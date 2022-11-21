@@ -42,6 +42,8 @@ unsigned int transformLoc, colorLoc;
 
 // plane data
 // ----------
+
+GLuint vertexBufferID, indexBufferID;
 GLuint numIndices;
 GLsizeiptr sizeVertices, sizeIndices;
 unsigned int planeVao, planeProgram;
@@ -59,12 +61,16 @@ unsigned int sphereMvpLoc, sphereMvLoc, sphereModelLoc, sphereLightPosLoc, spher
 // cube data
 // ---------
 
+GLuint cubeVbo, cubeEbo;
+GLuint cubeNumIndices;
+GLsizeiptr cubeSizeVertices, cubeSizeIndices;
+
 glm::vec3 planePos(0.0f, -0.0f, -0.0f);
 
 glm::vec3 cubePositions[] = {
-	   glm::vec3(3.0f,  0.0f,  -12.0f),
-	   glm::vec3(2.0f,  5.0f, -15.0f),
-	   glm::vec3(-1.5f, -2.2f, -2.5f),
+	   glm::vec3(13.0f,  -10.0f,  -12.0f),
+	   glm::vec3(2.0f,  -5.0f, -15.0f),
+	   glm::vec3(-1.5f, -12.2f, -12.5f),
 	   glm::vec3(-3.8f, -2.0f, -12.3f),
 	   glm::vec3(2.4f, -0.4f, -3.5f),
 	   glm::vec3(-1.7f,  3.0f, -7.5f),
@@ -75,7 +81,7 @@ glm::vec3 cubePositions[] = {
 
 
 	   glm::vec3(-2.5f,  1.7f, -1.8f),
-	   glm::vec3(-3.0f,  -1.7f, -0.8f)
+	   glm::vec3(-3.0f,  -1.7f, -2.8f)
 };
 
 // triangle data
@@ -130,38 +136,38 @@ void sendDataToOpenGL()
 	glGenVertexArrays(1, &planeVao);
 
 
-	//// Cube Data
-	//// =========
+	// Cube Data
+	// =========
 
-	//ShapeData shape = ShapeGenerator::makeCube();
+	ShapeData cube = ShapeGenerator::makeCube();
 
-	//GLuint vertexBufferID;
-	//glGenBuffers(1, &vertexBufferID);
-	//glBindVertexArray(cubeVao);
+	glGenBuffers(1, &cubeVbo);
+	glGenBuffers(1, &cubeEbo);
 
-	//glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+	glBindVertexArray(cubeVao);
 
-	//// initalize the whole buffer * need to include the size of triangle data *
-	//glBufferData(GL_ARRAY_BUFFER, shape.vertexBufferSize() + shape.indexBufferSize() + sizeof(verts) + sizeof(indices), shape.vertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, cubeVbo);
+	glBufferData(GL_ARRAY_BUFFER, cube.vertexBufferSize(), cube.vertices, GL_STATIC_DRAW);
 
-	//// set vertices data
-	//glBufferSubData(GL_ARRAY_BUFFER, 0, shape.vertexBufferSize(), shape.vertices);
+	// set vao attributes
+	// vertex position
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, 0);
+	// color
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 3));
+	// normal
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 6));
 
-	//// set vao attributes
-	//glEnableVertexAttribArray(0);
-	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
-	//glEnableVertexAttribArray(1);
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (char*)(sizeof(float) * 3));
+	// set indices data
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeEbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, cube.indexBufferSize(), cube.indices, GL_STATIC_DRAW);
 
-	//// set indices data
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
-	//glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, shape.vertexBufferSize(), shape.indexBufferSize(), shape.indices);
-
-	//numIndices = shape.numIndices;
-	//sizeVertices = shape.vertexBufferSize();
-	//sizeIndices = shape.indexBufferSize();
-
-	//shape.cleanup();
+	cubeNumIndices = cube.numIndices;
+	cubeSizeVertices = cube.vertexBufferSize();
+	cubeSizeIndices = cube.indexBufferSize();
+	cube.cleanup();
 
 	//// Triangle Data 
 	//// =============
@@ -187,18 +193,13 @@ void sendDataToOpenGL()
 
 	ShapeData plane = ShapeGenerator::makePlane(2);
 
-	GLuint vertexBufferID;
 	glGenBuffers(1, &vertexBufferID);
+	glGenBuffers(1, &indexBufferID);
 
 	glBindVertexArray(planeVao);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-
-	// initalize the whole buffer * need to include the size of triangle data *
-	glBufferData(GL_ARRAY_BUFFER, plane.vertexBufferSize() + plane.indexBufferSize(), plane.vertices, GL_STATIC_DRAW);
-
-	// set vertices data
-	glBufferSubData(GL_ARRAY_BUFFER, 0, plane.vertexBufferSize(), plane.vertices);
+	glBufferData(GL_ARRAY_BUFFER, plane.vertexBufferSize(), plane.vertices, GL_STATIC_DRAW);
 
 	// set vao attributes
 	// vertex position
@@ -212,8 +213,8 @@ void sendDataToOpenGL()
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 6));
 
 	// set indices data
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, plane.vertexBufferSize(), plane.indexBufferSize(), plane.indices);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, plane.indexBufferSize(), plane.indices, GL_STATIC_DRAW);
 
 	numIndices = plane.numIndices;
 	sizeVertices = plane.vertexBufferSize();
@@ -297,26 +298,76 @@ void MeGlWindow::paintGL()
 	mat4 worldToProjectionMatrix = viewToProjectionMatrix * worldToViewMatrix;
 
 	modelToProjectionMatrix = worldToProjectionMatrix * model;
-	//// set the value in shader
-	//glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-	//glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-	//glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
 	mat4 planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
-	glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
 	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
 
 	glUniform3fv(planeLightPosLoc, 1, &lightPos[0]);
 	vec3 camPos = camera.getPosition();
 	glUniform3fv(planeViewPos, 1, &camPos[0]);
-	vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
+	vec3 lightColor = vec3(1.0f, 0.0f, 0.0f);
 	glUniform3fv(planeLightColor, 1, &lightColor[0]);
 
-	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
+	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, 0);
 
+	// Draw cubes
+	// ----------
+	model = glm::translate(mat4(), vec3(3.0f, 1.0f, 5.0f));
+	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 0.5f, 0.7f));
 
-	glUseProgram(planeProgram);
+	modelToProjectionMatrix = worldToProjectionMatrix * model;
+	planeModelToWorldMatrix = viewToProjectionMatrix * model;
+
+	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
+	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+
+	glBindVertexArray(cubeVao);
+	glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
+
+	model = glm::translate(mat4(), vec3(-3.0f, 1.0f, 2.0f));
+	model = glm::rotate(model, glm::radians(104.0f), glm::vec3(1.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(40.0f), glm::vec3(1.0f, 0.0f, 1.0f));
+	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(0.24f, 0.5f, 0.37f));
+
+	modelToProjectionMatrix = worldToProjectionMatrix * model;
+	planeModelToWorldMatrix = viewToProjectionMatrix * model;
+
+	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
+	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+
+	//glBindVertexArray(cubeVao);
+	glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
+
+	for (unsigned int i = 0; i < 12; i++)
+	{
+		// calculate the model matrix for each object and pass it to shader before drawing
+		// translation * rotation * scale
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, cubePositions[i]);
+		float angle = 20.0f * i;
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		float scaleValue = (i + 1) * 0.03f;
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(scaleValue, scaleValue, scaleValue));
+
+		modelToProjectionMatrix = worldToProjectionMatrix * model;
+		planeModelToWorldMatrix = viewToProjectionMatrix * model;
+
+		glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+		//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
+		glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+
+		glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
+	}
+
+	// Draw Sphere
+
+	//glUseProgram(planeProgram);
 	glBindVertexArray(sphereVao);
 
 	model = glm::translate(mat4(), vec3(3.0f, 1.0f, 0.0f));
@@ -325,7 +376,7 @@ void MeGlWindow::paintGL()
 	planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
-	glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
+	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
 	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
 
 	glUniform3fv(planeLightPosLoc, 1, &lightPos[0]);
@@ -333,6 +384,9 @@ void MeGlWindow::paintGL()
 	glUniform3fv(planeLightColor, 1, &lightColor[0]);
 
 	glDrawElements(GL_TRIANGLES, sphereNumIndices, GL_UNSIGNED_SHORT, 0);
+
+	
+	 
 	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
 
 	//// Draw cube
@@ -505,7 +559,7 @@ void installShadersParser()
 
 	// find the location of uniform variable in shader	
 	mvpLoc = glGetUniformLocation(planeProgram, "mvpMatrix");
-	mvLoc = glGetUniformLocation(planeProgram, "mvMatrix");
+	//mvLoc = glGetUniformLocation(planeProgram, "mvMatrix");
 	planeModelLoc = glGetUniformLocation(planeProgram, "model");
 	planeLightPosLoc = glGetUniformLocation(planeProgram, "lightPos");
 	planeLightColor = glGetUniformLocation(planeProgram, "lightColor");
