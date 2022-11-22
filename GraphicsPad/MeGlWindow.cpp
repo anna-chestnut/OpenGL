@@ -84,6 +84,12 @@ glm::vec3 cubePositions[] = {
 	   glm::vec3(-3.0f,  -1.7f, -2.8f)
 };
 
+glm::vec3 spherePositions[] = {
+	   glm::vec3(-5.0f,  4.0f,  -8.0f),
+	   glm::vec3(-12.0f,  -5.0f, -5.0f),
+	   glm::vec3(-1.5f, 12.2f, -10.5f)
+};
+
 // triangle data
 // -------------
 GLfloat verts[] =
@@ -134,6 +140,7 @@ void sendDataToOpenGL()
 	glGenVertexArrays(1, &triangleVao);
 	glGenVertexArrays(1, &cubeVao);
 	glGenVertexArrays(1, &planeVao);
+	glGenVertexArrays(1, &sphereVao);
 
 
 	// Cube Data
@@ -225,24 +232,15 @@ void sendDataToOpenGL()
 	// Sphere data
 	// ===========
 
-	ShapeData sphere = ShapeGenerator::makeSphere(2);
+	ShapeData sphere = ShapeGenerator::makeSphere(160);
 
-	//GLuint sphereVBO;
-	glGenVertexArrays(1, &sphereVao);
 	glGenBuffers(1, &sphereVbo);
-	glGenBuffers(1, &sphereEbo);;
+	glGenBuffers(1, &sphereEbo);
 
 	glBindVertexArray(sphereVao);
 
 	glBindBuffer(GL_ARRAY_BUFFER, sphereVbo);
 	glBufferData(GL_ARRAY_BUFFER, sphere.vertexBufferSize(), sphere.vertices, GL_STATIC_DRAW);
-
-	// set indices data
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphere.indexBufferSize(), sphere.indices, GL_STATIC_DRAW);
-
-	// set vertices data
-	//glBufferSubData(GL_ARRAY_BUFFER, 0, sphere.vertexBufferSize(), sphere.vertices);
 
 	// set vao attributes
 	// vertex position
@@ -255,7 +253,10 @@ void sendDataToOpenGL()
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 6));
 
-	
+	// set indices data
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphere.indexBufferSize(), sphere.indices, GL_STATIC_DRAW);
+
 	sphereNumIndices = sphere.numIndices;
 	sphereSizeVertices = sphere.vertexBufferSize();
 	sphereSizeIndices = sphere.indexBufferSize();
@@ -274,31 +275,16 @@ void MeGlWindow::paintGL()
 	glUseProgram(planeProgram);
 	glBindVertexArray(planeVao);
 
-	//glUseProgram(programID);
-	//GLint ambientLightUniformLocation = glGetUniformLocation(programID, "ambientLight");
-	//vec4 ambientLight(0.05f, 0.05f, 0.05f, 1.0f);
-	//glUniform4fv(ambientLightUniformLocation, 1, &ambientLight[0]);
-	//GLint eyePositionWorldUniformLocation = glGetUniformLocation(programID, "eyePositionWorld");
-	//glm::vec3 eyePosition = camera.getPosition();
-	//glUniform3fv(eyePositionWorldUniformLocation, 1, &eyePosition[0]);
-	//GLint lightPositionUniformLocation = glGetUniformLocation(programID, "lightPositionWorld");
-	//glUniform3fv(lightPositionUniformLocation, 1, &lightPositionWorld[0]);
-
-	//fullTransformationUniformLocation = glGetUniformLocation(programID, "modelToProjectionMatrix");
-	//modelToWorldMatrixUniformLocation = glGetUniformLocation(programID, "modelToWorldMatrix");
-
 	mat4 model = glm::translate(mat4(), planePos);
 	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
-	/*model = glm::rotate(model, glm::radians(xoffset), glm::vec3(0.0f, 1.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(yoffset), glm::vec3(1.0f, 0.0f, 0.0f));*/
 
-	mat4 modelToProjectionMatrix;
+	
 	mat4 viewToProjectionMatrix = glm::perspective(60.0f, ((float)width()) / height(), 0.1f, 20.0f);
 	mat4 worldToViewMatrix = camera.getWorldToViewMatrix();
 	mat4 worldToProjectionMatrix = viewToProjectionMatrix * worldToViewMatrix;
 
-	modelToProjectionMatrix = worldToProjectionMatrix * model;
-	mat4 planeModelToWorldMatrix = viewToProjectionMatrix * model;
+	mat4 modelToProjectionMatrix = worldToProjectionMatrix * model;
+	//mat4 planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
 	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
@@ -313,17 +299,14 @@ void MeGlWindow::paintGL()
 
 	// Draw cubes
 	// ----------
-	model = glm::translate(mat4(), vec3(3.0f, 1.0f, 5.0f));
-	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 0.5f, 0.7f));
+	model = glm::translate(glm::mat4(1.0f), vec3(3.0f, 1.0f, 5.0f)) *
+		glm::rotate(model, -30.0f, glm::vec3(0.0f, 1.0f, 0.0f)) *
+		glm::rotate(model, -45.0f, glm::vec3(1.0f, 0.0f, 0.0f)) *
+		glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.2f, 0.3f));
 
 	modelToProjectionMatrix = worldToProjectionMatrix * model;
-	planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
-	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
 	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
 
 	glBindVertexArray(cubeVao);
@@ -335,7 +318,6 @@ void MeGlWindow::paintGL()
 	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(0.24f, 0.5f, 0.37f));
 
 	modelToProjectionMatrix = worldToProjectionMatrix * model;
-	planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
 	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
@@ -351,12 +333,12 @@ void MeGlWindow::paintGL()
 		model = glm::mat4(1.0f);
 		model = glm::translate(model, cubePositions[i]);
 		float angle = 20.0f * i;
-		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		model = glm::rotate(model, angle, glm::vec3(1.0f, 0.3f, 0.5f));
 		float scaleValue = (i + 1) * 0.03f;
 		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(scaleValue, scaleValue, scaleValue));
 
 		modelToProjectionMatrix = worldToProjectionMatrix * model;
-		planeModelToWorldMatrix = viewToProjectionMatrix * model;
+		//planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 		glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
 		//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
@@ -366,25 +348,25 @@ void MeGlWindow::paintGL()
 	}
 
 	// Draw Sphere
+	// -----------
 
-	//glUseProgram(planeProgram);
 	glBindVertexArray(sphereVao);
 
-	model = glm::translate(mat4(), vec3(3.0f, 1.0f, 0.0f));
+	for (unsigned int i = 0; i < 3; i++)
+	{
 
-	modelToProjectionMatrix = worldToProjectionMatrix * model;
-	planeModelToWorldMatrix = viewToProjectionMatrix * model;
+		model = glm::translate(mat4(), spherePositions[i]);
+		float scaleValue = (i + 5) * 0.2f;
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(scaleValue, scaleValue, scaleValue));
 
-	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
-	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
-	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+		modelToProjectionMatrix = worldToProjectionMatrix * model;
 
-	glUniform3fv(planeLightPosLoc, 1, &lightPos[0]);
-	glUniform3fv(planeViewPos, 1, &camPos[0]);
-	glUniform3fv(planeLightColor, 1, &lightColor[0]);
+		glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+		glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
 
-	glDrawElements(GL_TRIANGLES, sphereNumIndices, GL_UNSIGNED_SHORT, 0);
+		glDrawElements(GL_TRIANGLES, sphereNumIndices, GL_UNSIGNED_SHORT, 0);
 
+	}
 	
 	 
 	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
