@@ -25,6 +25,10 @@ const unsigned int SCR_HEIGHT = 600;
 Camera camera;
 glm::vec3 lightPos(0, 3, 0);
 
+
+unsigned int passTroughProgram;
+unsigned int passTroughMvp;
+
 // cube data
 // ---------
 unsigned int cubeProgram;
@@ -65,6 +69,14 @@ GLuint cubeVbo, cubeEbo;
 GLuint cubeNumIndices;
 GLsizeiptr cubeSizeVertices, cubeSizeIndices;
 
+
+// arrow data
+// ---------
+
+GLuint arrowVao, arrowVbo, arrowEbo;
+GLuint arrowNumIndices;
+GLsizeiptr arrowSizeVertices, arrowSizeIndices;
+
 glm::vec3 planePos(0.0f, -0.0f, -0.0f);
 
 glm::vec3 cubePositions[] = {
@@ -88,6 +100,12 @@ glm::vec3 spherePositions[] = {
 	   glm::vec3(-5.0f,  4.0f,  -8.0f),
 	   glm::vec3(-12.0f,  -5.0f, -5.0f),
 	   glm::vec3(-1.5f, 12.2f, -10.5f)
+};
+
+glm::vec3 arrowPositions[] = {
+	   glm::vec3(5.0f,  -4.0f,  -2.0f),
+	   glm::vec3(-4.0f,  -2.0f, -10.0f),
+	   glm::vec3(-1.5f, 4.2f, -7.5f)
 };
 
 // triangle data
@@ -141,6 +159,7 @@ void sendDataToOpenGL()
 	glGenVertexArrays(1, &cubeVao);
 	glGenVertexArrays(1, &planeVao);
 	glGenVertexArrays(1, &sphereVao);
+	glGenVertexArrays(1, &arrowVao);
 
 
 	// Cube Data
@@ -262,6 +281,38 @@ void sendDataToOpenGL()
 	sphereSizeIndices = sphere.indexBufferSize();
 	sphere.cleanup();
 
+	// Arrow data
+	// ===========
+
+	ShapeData arrow = ShapeGenerator::makeArrow();
+
+	glGenBuffers(1, &arrowVbo);
+	glGenBuffers(1, &arrowEbo);
+
+	glBindVertexArray(arrowVao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, arrowVbo);
+	glBufferData(GL_ARRAY_BUFFER, arrow.vertexBufferSize(), arrow.vertices, GL_STATIC_DRAW);
+
+	// set vao attributes
+	// vertex position
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, 0);
+	// color
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 3));
+	// normal
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 6));
+
+	// set indices data
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, arrowEbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, arrow.indexBufferSize(), arrow.indices, GL_STATIC_DRAW);
+
+	arrowNumIndices = arrow.numIndices;
+	arrowSizeVertices = arrow.vertexBufferSize();
+	arrowSizeIndices = arrow.indexBufferSize();
+	arrow.cleanup();
 	
 
 }
@@ -347,6 +398,8 @@ void MeGlWindow::paintGL()
 		glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
 	}
 
+	
+
 	// Draw Sphere
 	// -----------
 
@@ -367,8 +420,40 @@ void MeGlWindow::paintGL()
 		glDrawElements(GL_TRIANGLES, sphereNumIndices, GL_UNSIGNED_SHORT, 0);
 
 	}
+
+	// Draw arrow
+	// -----------
+
+	glBindVertexArray(arrowVao);
+
+	for (unsigned int i = 0; i < 3; i++)
+	{
+
+		model = glm::translate(mat4(), arrowPositions[i]);
+		float scaleValue = (i + 5) * 0.2f;
+		model = model * glm::scale(glm::mat4(1.0f), glm::vec3(scaleValue, scaleValue, scaleValue));
+
+		modelToProjectionMatrix = worldToProjectionMatrix * model;
+
+		glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+		glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+
+		glDrawElements(GL_TRIANGLES, arrowNumIndices, GL_UNSIGNED_SHORT, 0);
+
+	}
 	
-	 
+	// Pass through shader to draw a cube
+
+	glBindVertexArray(cubeVao);
+	mat4 cubeModelToWorldMatrix =
+		glm::translate(mat4(), lightPos) *
+		glm::scale(glm::mat4(1.0f), vec3(0.1f, 0.1f, 0.1f));
+	modelToProjectionMatrix = worldToProjectionMatrix * cubeModelToWorldMatrix;
+	glUseProgram(passTroughProgram);
+	glUniformMatrix4fv(passTroughMvp, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+
+	glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
+
 	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
 
 	//// Draw cube
@@ -501,9 +586,9 @@ void installShadersParser()
 	viewLoc = glGetUniformLocation(cubeProgram, "view");
 	projectionLoc = glGetUniformLocation(cubeProgram, "projection");
 
-	// Load triangle shader
-	// ====================
-	source = ShaderParser::ParseShader("triangle.shader");
+	// Load pass through shader
+	// ========================
+	source = ShaderParser::ParseShader("passThrough.shader");
 
 	vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
 	fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
@@ -512,15 +597,15 @@ void installShadersParser()
 	glCompileShader(fragmentShaderID);
 
 	// attach to triangle shader to triangleProgram
-	triangleProgram = glCreateProgram();
-	glAttachShader(triangleProgram, vertexShaderID);
-	glAttachShader(triangleProgram, fragmentShaderID);
-	glLinkProgram(triangleProgram);
-	glValidateProgram(triangleProgram);
+	passTroughProgram = glCreateProgram();
+	glAttachShader(passTroughProgram, vertexShaderID);
+	glAttachShader(passTroughProgram, fragmentShaderID);
+	glLinkProgram(passTroughProgram);
+	glValidateProgram(passTroughProgram);
 
 	// find the location of uniform variable in shader
-	transformLoc = glGetUniformLocation(triangleProgram, "transform");
-	colorLoc = glGetUniformLocation(triangleProgram, "color");
+	passTroughMvp = glGetUniformLocation(passTroughProgram, "mvpMatrix");
+	//colorLoc = glGetUniformLocation(triangleProgram, "color");
 
 	// Load plane shader
 	// ================
