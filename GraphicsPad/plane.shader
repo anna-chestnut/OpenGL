@@ -18,7 +18,7 @@ out vec3 FragPos;
 void main()
 {
 	
-	theColor = vertexColor;
+	theColor = vec3(1.0, 1.0, 1.0);
 	FragPos = vec3(model * vec4(position, 1.0));
 	Normal = mat3(transpose(inverse(model))) * normal;
 	gl_Position = mvpMatrix * vec4(position, 1.0f);
@@ -56,8 +56,8 @@ void main()
 	float specularStrength = 0.5;//0.5
 	vec3 viewDir = normalize(viewPos - FragPos);
 	vec3 reflectDir = reflect(-lightDir, norm);
-	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-	vec3 specular = specularStrength * spec * lightColor;
+	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 1032);
+	vec3 specular = specularStrength * spec * vec3(1.0f, 0.0f, 0.0f);
 
 
 	vec3 result = (ambient + diffuse + specular) * theColor;

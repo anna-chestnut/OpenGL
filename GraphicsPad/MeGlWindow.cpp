@@ -343,7 +343,7 @@ void MeGlWindow::paintGL()
 	glUniform3fv(planeLightPosLoc, 1, &lightPos[0]);
 	vec3 camPos = camera.getPosition();
 	glUniform3fv(planeViewPos, 1, &camPos[0]);
-	vec3 lightColor = vec3(1.0f, 0.0f, 0.0f);
+	vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
 	glUniform3fv(planeLightColor, 1, &lightColor[0]);
 
 	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, 0);
@@ -695,6 +695,14 @@ void MeGlWindow::keyPressEvent(QKeyEvent* e)
 	case Qt::Key::Key_Right:
 		//xoffset += rotateDegree;
 		lightPos += glm::vec3(moveSpeed, 0.0f, 0.0f);
+		break;
+	case Qt::Key::Key_2:
+		//yoffset -= rotateDegree;
+		lightPos -= glm::vec3(0.0f, moveSpeed, 0.0f);
+		break;
+	case Qt::Key::Key_8:
+		//xoffset += rotateDegree;
+		lightPos += glm::vec3(0.0f, moveSpeed, 0.0f);
 		break;
 	case Qt::Key::Key_Space:
 		drawCube = !drawCube;
