@@ -6,6 +6,7 @@
     <ClCompile Include="Primitives\ShapeGenerator.cpp" />
     <ClCompile Include="ShaderParser.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="lodepng.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MeGlWindow.h" />
@@ -15,9 +16,14 @@
     <ClInclude Include="ShaderParser.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Primitives\TeapotData.h" />
+    <ClInclude Include="res\include\lodepng.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="plane.shader" />
     <None Include="passThrough.shader" />
+    <None Include="cubeWithTexture.shader" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\texture\brick.png" />
   </ItemGroup>
 </Project>

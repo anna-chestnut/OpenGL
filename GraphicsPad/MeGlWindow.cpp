@@ -13,6 +13,7 @@
 #include <Primitives\ShapeGenerator.h>
 #include "ShaderParser.h"
 #include "Camera.h"
+#include "res/include/lodepng.h"
 
 using namespace std;
 using glm::vec3;
@@ -37,6 +38,7 @@ GLint modelLoc, viewLoc, projectionLoc;
 float xoffset, yoffset;
 float moveSpeed = 0.2f;
 bool drawCube = true;
+unsigned int cubeMvpLoc, cubeModelLoc, cubeLightPosLoc, cubeLightColor, cubeViewPos, cubeTex;
 
 // triangle data
 // -------------
@@ -69,6 +71,10 @@ GLuint cubeVbo, cubeEbo;
 GLuint cubeNumIndices;
 GLsizeiptr cubeSizeVertices, cubeSizeIndices;
 
+GLuint brickTexture;
+//texture pixels
+std::vector<unsigned char> image; //the raw pixels
+unsigned width, height;
 
 // arrow data
 // ---------
@@ -151,6 +157,7 @@ GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
 
 static void GLClearError();
 static bool GLLogCall(const char* function, const char* file, int line);
+std::vector<unsigned char> decodeTwoSteps(const char* filename, std::vector<unsigned char> decodeImage);
 
 void sendDataToOpenGL()
 {
@@ -178,13 +185,16 @@ void sendDataToOpenGL()
 	// set vao attributes
 	// vertex position
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 12, 0);
 	// color
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 3));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 12, (char*)(sizeof(float) * 3));
 	// normal
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9, (char*)(sizeof(float) * 6));
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 12, (char*)(sizeof(float) * 6));
+	// texture coordinate
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 12, (char*)(sizeof(float) * 9));
 
 	// set indices data
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeEbo);
@@ -350,6 +360,8 @@ void MeGlWindow::paintGL()
 
 	// Draw cubes
 	// ----------
+
+	glUseProgram(cubeProgram);
 	model = glm::translate(glm::mat4(1.0f), vec3(3.0f, 1.0f, 5.0f)) *
 		glm::rotate(model, -30.0f, glm::vec3(0.0f, 1.0f, 0.0f)) *
 		glm::rotate(model, -45.0f, glm::vec3(1.0f, 0.0f, 0.0f)) *
@@ -357,8 +369,17 @@ void MeGlWindow::paintGL()
 
 	modelToProjectionMatrix = worldToProjectionMatrix * model;
 
-	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
-	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+	glUniformMatrix4fv(cubeMvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+	glUniformMatrix4fv(cubeModelLoc, 1, GL_FALSE, &model[0][0]);
+	glUniform3fv(cubeLightPosLoc, 1, &lightPos[0]);
+	glUniform3fv(cubeViewPos, 1, &camPos[0]);
+	//glUniform3fv(cubeLightColor, 1, &lightColor[0]);
+
+	glUniform1i(cubeTex, 0);
+
+	// bind textures on corresponding texture units
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, brickTexture);
 
 	glBindVertexArray(cubeVao);
 	glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
@@ -370,9 +391,9 @@ void MeGlWindow::paintGL()
 
 	modelToProjectionMatrix = worldToProjectionMatrix * model;
 
-	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+	glUniformMatrix4fv(cubeMvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
 	//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
-	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+	glUniformMatrix4fv(cubeModelLoc, 1, GL_FALSE, &model[0][0]);
 
 	//glBindVertexArray(cubeVao);
 	glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
@@ -391,9 +412,9 @@ void MeGlWindow::paintGL()
 		modelToProjectionMatrix = worldToProjectionMatrix * model;
 		//planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
-		glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+		glUniformMatrix4fv(cubeMvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
 		//glUniformMatrix4fv(mvLoc, 1, GL_FALSE, &planeModelToWorldMatrix[0][0]);
-		glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
+		glUniformMatrix4fv(cubeModelLoc, 1, GL_FALSE, &model[0][0]);
 
 		glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
 	}
@@ -404,6 +425,7 @@ void MeGlWindow::paintGL()
 	// -----------
 
 	glBindVertexArray(sphereVao);
+	glUseProgram(planeProgram);
 
 	for (unsigned int i = 0; i < 3; i++)
 	{
@@ -566,7 +588,7 @@ void installShadersParser()
 {
 	// Load cube shader
 	// ================
-	ShaderParser::ShaderProgramSource source = ShaderParser::ParseShader("cube.shader");
+	ShaderParser::ShaderProgramSource source = ShaderParser::ParseShader("cubeWithTexture.shader");
 
 	GLuint vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
 	GLuint fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
@@ -582,9 +604,12 @@ void installShadersParser()
 	glValidateProgram(cubeProgram);
 
 	// find the location of uniform variable in shader	
-	modelLoc = glGetUniformLocation(cubeProgram, "model");
-	viewLoc = glGetUniformLocation(cubeProgram, "view");
-	projectionLoc = glGetUniformLocation(cubeProgram, "projection");
+	cubeMvpLoc = glGetUniformLocation(cubeProgram, "mvpMatrix");
+	cubeModelLoc = glGetUniformLocation(cubeProgram, "model");
+	cubeLightPosLoc = glGetUniformLocation(cubeProgram, "lightPos");
+	//cubeLightColor = glGetUniformLocation(cubeProgram, "lightColor");
+	cubeViewPos = glGetUniformLocation(cubeProgram, "viewPos");
+	cubeTex = glGetUniformLocation(cubeProgram, "tex");
 
 	// Load pass through shader
 	// ========================
@@ -633,11 +658,31 @@ void installShadersParser()
 	planeViewPos = glGetUniformLocation(planeProgram, "viewPos"); 
 }
 
+void createTexture() {
+
+	GLCall(glGenTextures(1, &brickTexture));
+	GLCall(glBindTexture(GL_TEXTURE_2D, brickTexture));
+
+	image = decodeTwoSteps("res/texture/brick.png", image);
+	assert(&image);
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &image[0]));
+	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
+
+	// set texture filtering parameters
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+}
+
 void MeGlWindow::initializeGL()
 {
 	glewInit();
 	glEnable(GL_DEPTH_TEST);
 	sendDataToOpenGL();
+	createTexture();
 	installShadersParser();
 }
 
@@ -729,4 +774,19 @@ static bool GLLogCall(const char* function, const char* file, int line)
 	}
 
 	return true;
+}
+
+std::vector<unsigned char> decodeTwoSteps(const char* filename, std::vector<unsigned char> decodeImage) {
+	std::vector<unsigned char> png;
+
+	//load and decode
+	unsigned error = lodepng::load_file(png, filename);
+	if (!error) error = lodepng::decode(decodeImage, width, height, png);
+
+	//if there's an error, display it
+	if (error) std::cout << "decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
+
+	return decodeImage;
+
+	//the pixels are now in the vector "image", 4 bytes per pixel, ordered RGBARGBA..., use it as texture, draw it, ...
 }
