@@ -167,9 +167,11 @@
     <None Include="cubeWithTexture.shader" />
     <None Include="passThrough.shader" />
     <None Include="plane.shader" />
+    <None Include="planeUseNormalMap.shader" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\texture\brick.png" />
+    <Image Include="res\texture\Normal_map.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

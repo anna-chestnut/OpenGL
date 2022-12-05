@@ -55,6 +55,10 @@ GLsizeiptr sizeVertices, sizeIndices;
 unsigned int planeVao, planeProgram;
 unsigned int mvpLoc, mvLoc, planeModelLoc, planeLightPosLoc, planeLightColor, planeViewPos;
 
+unsigned int planeVaoWithTex, planeVaoWithTexVbo, planeVaoWithTexEbo;
+unsigned int planeNmProgram;
+unsigned int planeNmMvpLoc, planeNmModelLoc, planeNmLightPosLoc, planeNmLightColor, planeNmViewPos, planeNmTex;
+
 // sphere data
 // -----------
 unsigned int sphereVao, sphereVbo, sphereEbo;
@@ -71,9 +75,9 @@ GLuint cubeVbo, cubeEbo;
 GLuint cubeNumIndices;
 GLsizeiptr cubeSizeVertices, cubeSizeIndices;
 
-GLuint brickTexture;
+GLuint brickTexture, NormalMapTexture;
 //texture pixels
-std::vector<unsigned char> image; //the raw pixels
+std::vector<unsigned char> image, image2; //the raw pixels
 unsigned width, height;
 
 // arrow data
@@ -114,31 +118,27 @@ glm::vec3 arrowPositions[] = {
 	   glm::vec3(-1.5f, 4.2f, -7.5f)
 };
 
-// triangle data
+// plane data
 // -------------
 GLfloat verts[] =
 {
 
-	+0.5f, +0.5f,
+	+0.0f, +0.0f, +0.0f,// pos
+	+0.2f, +0.1f, +0.7f,// color
+	+0.0f, +0.0f,		// text coordinate
+	+1.0f, +0.0f, +0.0f,
 	+0.2f, +0.1f, +0.7f,
-	-0.5f, +0.5f,
+	+1.0f, +0.0f,
+	+1.0f, +1.0f, +0.0f,
 	+0.2f, +0.1f, +0.7f,
-	-0.5f, -0.5f,
+	+1.0f, +1.0f,
+	+0.0f, +1.0f, +0.0f,
 	+0.2f, +0.1f, +0.7f,
-	+0.5f, -0.5f,
-	+0.2f, +0.1f, +0.7f,
-
-	0.1f, +0.1f,
-	+0.8f, +0.2f, +0.0f,
-	-0.2f, +0.3f,
-	+0.8f, +0.2f, +0.0f,
-	-0.25f, +0.1f,
-	+0.8f, +0.2f, +0.0f,
-
+	+0.0f, +1.0f,
 
 };
 
-GLushort indices[] = { 0,1,2, 2,3,0, 4,5,6 };
+GLushort indices[] = { 0,1,2, 0,2,3 };
 
 
 #define PR_DEBUG
@@ -167,6 +167,7 @@ void sendDataToOpenGL()
 	glGenVertexArrays(1, &planeVao);
 	glGenVertexArrays(1, &sphereVao);
 	glGenVertexArrays(1, &arrowVao);
+	glGenVertexArrays(1, &planeVaoWithTex);
 
 
 	// Cube Data
@@ -205,25 +206,6 @@ void sendDataToOpenGL()
 	cubeSizeIndices = cube.indexBufferSize();
 	cube.cleanup();
 
-	//// Triangle Data 
-	//// =============
-	//glBindVertexArray(triangleVao);
-
-	//// set vertices data
-	//GLCall(glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID)); 
-	//GLCall(glBufferSubData(GL_ARRAY_BUFFER, sizeVertices + sizeIndices, sizeof(verts), &verts));
-
-	//// set indices data
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferID);
-	//glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeVertices + sizeIndices + sizeof(verts), sizeof(indices), &indices);
-
-	//// set vao attribute
-	//glEnableVertexAttribArray(0);
-	//glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeVertices + sizeIndices));
-	//glEnableVertexAttribArray(1);
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (char*)(sizeVertices + sizeIndices + sizeof(float) * 2));
-
-
 	// Plane Data
 	// ==========
 
@@ -257,6 +239,31 @@ void sendDataToOpenGL()
 	sizeIndices = plane.indexBufferSize();
 	plane.cleanup();
 
+	// Plane with Text Coordinate Data
+	// ===============================
+
+	glGenBuffers(1, &planeVaoWithTexEbo);
+	glGenBuffers(1, &planeVaoWithTexVbo);
+
+	glBindVertexArray(planeVaoWithTex);
+
+	glBindBuffer(GL_ARRAY_BUFFER, planeVaoWithTexVbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), &verts, GL_STATIC_DRAW);
+
+	// set vao attributes
+	// vertex position
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, 0);
+	// color
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, (char*)(sizeof(float) * 3));
+	// texture coordinate
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 8, (char*)(sizeof(float) * 6));
+
+	// set indices data
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planeVaoWithTexEbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), &indices, GL_STATIC_DRAW);
 
 	// Sphere data
 	// ===========
@@ -333,19 +340,20 @@ void MeGlWindow::paintGL()
 	glViewport(0, 0, width(), height());
 	glClearColor(+1.0f, +0.75f, 0.8f, 1.0f);
 
+	// Draw Plane
+	// ----------
+
 	glUseProgram(planeProgram);
 	glBindVertexArray(planeVao);
 
 	mat4 model = glm::translate(mat4(), planePos);
 	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
 
-	
 	mat4 viewToProjectionMatrix = glm::perspective(60.0f, ((float)width()) / height(), 0.1f, 20.0f);
 	mat4 worldToViewMatrix = camera.getWorldToViewMatrix();
 	mat4 worldToProjectionMatrix = viewToProjectionMatrix * worldToViewMatrix;
 
 	mat4 modelToProjectionMatrix = worldToProjectionMatrix * model;
-	//mat4 planeModelToWorldMatrix = viewToProjectionMatrix * model;
 
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
 	glUniformMatrix4fv(planeModelLoc, 1, GL_FALSE, &model[0][0]);
@@ -356,12 +364,37 @@ void MeGlWindow::paintGL()
 	vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
 	glUniform3fv(planeLightColor, 1, &lightColor[0]);
 
-	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, 0);
+	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, 0);
+
+	// Draw Normal Map Plane
+	// ---------------------
+
+	glUseProgram(planeNmProgram);
+	glBindVertexArray(planeVaoWithTex);
+
+	model = glm::translate(mat4(), planePos);
+	model = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 3.0f));
+	//model = glm::rotate(model, 90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	modelToProjectionMatrix = worldToProjectionMatrix * model;
+
+	glUniformMatrix4fv(planeNmMvpLoc, 1, GL_FALSE, &modelToProjectionMatrix[0][0]);
+	glUniformMatrix4fv(planeNmModelLoc, 1, GL_FALSE, &model[0][0]);
+	glUniform3fv(planeNmLightPosLoc, 1, &lightPos[0]);
+	glUniform3fv(planeNmViewPos, 1, &camPos[0]);
+	glUniform3fv(planeNmLightColor, 1, &lightColor[0]);
+
+	glUniform1i(planeNmTex, 0);
+	// bind textures on corresponding texture units
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, NormalMapTexture);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
 	// Draw cubes
 	// ----------
 
 	glUseProgram(cubeProgram);
+
 	model = glm::translate(glm::mat4(1.0f), vec3(3.0f, 1.0f, 5.0f)) *
 		glm::rotate(model, -30.0f, glm::vec3(0.0f, 1.0f, 0.0f)) *
 		glm::rotate(model, -45.0f, glm::vec3(1.0f, 0.0f, 0.0f)) *
@@ -476,112 +509,7 @@ void MeGlWindow::paintGL()
 
 	glDrawElements(GL_TRIANGLES, cubeNumIndices, GL_UNSIGNED_SHORT, 0);
 
-	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
-
-	//// Draw cube
-	//// =========
-
-	//// tell opengl which program and vao to use to render
-	//glUseProgram(cubeProgram);
-	//glBindVertexArray(cubeVao);
-
-	//mat4 model = glm::translate(mat4(), cubePos);
-	//model = glm::rotate(model, glm::radians(xoffset), glm::vec3(0.0f, 1.0f, 0.0f));
-	//model = glm::rotate(model, glm::radians(yoffset), glm::vec3(1.0f, 0.0f, 0.0f));
-
-	//glm::mat4 view = glm::mat4(1.0f);
-	//view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-	//mat4 projection = glm::perspective(45.0f, ((float)width()) / height(), 0.1f, 100.0f);
-
-
-	//if (drawCube) {
-	//	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-	//}
-	//else {
-	//	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.001f));
-	//}
-
-	//// set the value in shader
-	//glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-	//glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-	//glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
-
-	//glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
-
-	//// Draw multiple cubes
-	//// -------------------
-
-	//for (unsigned int i = 0; i < 12; i++)
-	//{
-	//	// calculate the model matrix for each object and pass it to shader before drawing
-	//	// translation * rotation * scale
-	//	model = glm::mat4(1.0f);
-	//	model = glm::translate(model, cubePositions[i]);
-	//	float angle = 20.0f * i;
-	//	model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-	//	float scaleValue = (i + 1) * 0.03f;
-	//	model = model * glm::scale(glm::mat4(1.0f), glm::vec3(scaleValue, scaleValue, scaleValue));
-	//	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-
-	//	glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, (GLvoid*)sizeVertices);
-
-	//}
-	//
-	//// Draw traingle
-	//// =============
-
-	//// tell opengl which program and vao to use to render
-	//glUseProgram(triangleProgram);
-	//glBindVertexArray(triangleVao);
-
-	//// create transformations -> translation * rotation * scale
-	//glm::mat4 transform = glm::mat4(1.0f);
-	//transform = glm::translate(transform, vec3(0.9f, -0.9f, 0.0f));
-	//transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.1f, 0.1f));
-	//glm::vec3 inputColor(0.1f, 0.2f, 0.2f);
-
-	//// set the value in shader
-	//glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
-	//glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
-
-	//glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 140));
-
-	//// second triangle
-	//// ---------------
-	//transform = glm::mat4(1.0f);
-	//transform = glm::translate(transform, vec3(-0.9f, 0.8f, 0.0f));
-	//transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.25f, 0.5f));
-	//inputColor = glm::vec3(0.5f, 0.1f, 0.2f);
-	//glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
-	//glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
-	//glUseProgram(triangleProgram);
-
-	//glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 146));
-
-	//// third triangle
-	//// ---------------
-	//transform = glm::mat4(1.0f);
-	//transform = glm::translate(transform, vec3(-1.0f, -1.0f, 0.0f));
-	//transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
-	//inputColor = glm::vec3(0.18f, 0.78f, 0.28f);
-	//glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
-	//glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
-	//glUseProgram(triangleProgram);
-
-	//glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 146));
-
-	//// first rectangle
-	//// -------------
-	//transform = glm::mat4(1.0f);
-	//transform = glm::translate(transform, vec3(1.0f, 1.0f, 0.0f));
-	//transform = transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
-	//inputColor = glm::vec3(0.1f, 0.5f, 0.7f);
-	//glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
-	//glUniform3f(colorLoc, inputColor[0], inputColor[1], inputColor[2]);
-	//glUseProgram(triangleProgram);
-
-	//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (GLvoid*)(sizeVertices + sizeIndices + 140));
+	
 }
 
 void installShadersParser()
@@ -656,9 +584,37 @@ void installShadersParser()
 	planeLightPosLoc = glGetUniformLocation(planeProgram, "lightPos");
 	planeLightColor = glGetUniformLocation(planeProgram, "lightColor");
 	planeViewPos = glGetUniformLocation(planeProgram, "viewPos"); 
+
+	// Load Plane normal map shader
+	// ============================
+	source = ShaderParser::ParseShader("planeUseNormalMap.shader");
+
+	vertexShaderID = ShaderParser::CompileShader(GL_VERTEX_SHADER, source.VertexSource);
+	fragmentShaderID = ShaderParser::CompileShader(GL_FRAGMENT_SHADER, source.FragmentSource);
+
+	glCompileShader(vertexShaderID);
+	glCompileShader(fragmentShaderID);
+
+	// attach to cube shader to cubeProgram
+	planeNmProgram = glCreateProgram();
+	glAttachShader(planeNmProgram, vertexShaderID);
+	glAttachShader(planeNmProgram, fragmentShaderID);
+	glLinkProgram(planeNmProgram);
+	glValidateProgram(planeNmProgram);
+
+	// find the location of uniform variable in shader	
+	planeNmMvpLoc = glGetUniformLocation(planeNmProgram, "mvpMatrix");
+	planeNmModelLoc = glGetUniformLocation(planeNmProgram, "model");
+	planeNmLightPosLoc = glGetUniformLocation(planeNmProgram, "lightPos");
+	planeNmLightColor = glGetUniformLocation(planeNmProgram, "lightColor");
+	planeNmViewPos = glGetUniformLocation(planeNmProgram, "viewPos");
+	planeNmTex = glGetUniformLocation(planeNmProgram, "tex");
 }
 
 void createTexture() {
+
+	// Create Brick Texture
+	// --------------------
 
 	GLCall(glGenTextures(1, &brickTexture));
 	GLCall(glBindTexture(GL_TEXTURE_2D, brickTexture));
@@ -666,6 +622,27 @@ void createTexture() {
 	image = decodeTwoSteps("res/texture/brick.png", image);
 	assert(&image);
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &image[0]));
+	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
+
+	// set texture filtering parameters
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+
+	// Create Normal map Texture
+	// -------------------------
+
+	
+	GLCall(glGenTextures(1, &NormalMapTexture));
+	GLCall(glBindTexture(GL_TEXTURE_2D, NormalMapTexture));
+
+	image2 = decodeTwoSteps("res/texture/Normal_map.png", image2);
+	assert(&image2);
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &image2[0]));
 	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
 
 	// set texture filtering parameters
